@@ -58,6 +58,15 @@ export function pluralize(count, word) {
   return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
+// 120 -> "2 hrs"      75 -> "1 hr 15 min"      45 -> "45 min"
+export function formatDuration(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  const hourText = hours > 0 ? `${hours} ${hours === 1 ? "hr" : "hrs"}` : "";
+  const minuteText = rest > 0 ? `${rest} min` : "";
+  return [hourText, minuteText].filter(Boolean).join(" ") || "0 min";
+}
+
 // Date -> "Monday, November 23, 2026"
 export function formatLongDate(date = new Date()) {
   return date.toLocaleDateString("en-US", {
