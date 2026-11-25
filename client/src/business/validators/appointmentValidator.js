@@ -1,6 +1,9 @@
 // BUSINESS LAYER: checks the appointment form values.
 // It returns an object of error messages, for example { date: "Please choose a date." }.
 // An empty object {} means the form is valid.
+//
+// The price is NOT checked here. The form does not decide the price: appointmentService.js takes it from the
+// selected service record (see buildAppointmentRecord there).
 import { toISODate } from "../utils/format.js";
 
 // "form" holds the values exactly as typed (all strings).
@@ -29,12 +32,6 @@ export function validateAppointment(form, existing = null) {
 
   if (!form.time) {
     errors.time = "Please choose a time.";
-  }
-
-  if (form.price === "" || form.price === null || form.price === undefined) {
-    errors.price = "Price is required.";
-  } else if (Number.isNaN(Number(form.price)) || Number(form.price) < 0) {
-    errors.price = "Enter a valid price (0 or more).";
   }
 
   if (form.notes && form.notes.length > 300) {

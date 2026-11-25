@@ -4,6 +4,7 @@
 import * as petRepository from "../../data/repositories/petRepository.js";
 import * as customerRepository from "../../data/repositories/customerRepository.js";
 import * as appointmentRepository from "../../data/repositories/appointmentRepository.js";
+import * as serviceRepository from "../../data/repositories/serviceRepository.js";
 import { validatePet } from "../validators/petValidator.js";
 import { isOpen } from "./appointmentService.js";
 import { pluralize } from "../utils/format.js";
@@ -50,10 +51,23 @@ export async function getOwnerOptions() {
 }
 
 // The appointments of one pet, newest first. Used for the "Grooming History" in the pet details window.
+// Each appointment shows the service's current name (looked up through serviceId), like every other page.
 export async function getPetHistory(petId) {
-  const appointments = await appointmentRepository.getAppointments();
+  const [appointments, services] = await Promise.all([
+    appointmentRepository.getAppointments(),
+    serviceRepository.getServices(),
+  ]);
   return appointments
     .filter((appointment) => appointment.petId === petId)
+    .map((appointment) => {
+      const service = services.find(
+        (item) => item.id === appointment.serviceId,
+      );
+      return {
+        ...appointment,
+        service: service ? service.name : appointment.service,
+      };
+    })
     .sort(
       (a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time),
     );

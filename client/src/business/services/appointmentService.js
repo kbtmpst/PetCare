@@ -7,7 +7,12 @@ import * as customerRepository from "../../data/repositories/customerRepository.
 import * as serviceRepository from "../../data/repositories/serviceRepository.js";
 import * as transactionRepository from "../../data/repositories/transactionRepository.js";
 import { validateAppointment } from "../validators/appointmentValidator.js";
-import { toISODate } from "../utils/format.js";
+import {
+  toISODate,
+  formatCurrency,
+  formatShortDate,
+  formatTime,
+} from "../utils/format.js";
 
 // ---------------------------------------------------------------------------
 // Statuses and the rules for moving between them
@@ -71,12 +76,16 @@ function fullName(customer) {
 // An appointment only stores petId and customerId. Here we look up the pet's name and breed and the
 // owner's name through those ids, so the pages (and the Dashboard) can simply show appointment.pet,
 // appointment.breed, appointment.species and appointment.customer, and always see the current names.
+// The service name is looked up through serviceId in the same way, so renaming a service in the Services page
+// changes it everywhere. (The name copied into the appointment when it was booked is only a backup, used if the
+// service record cannot be found. The price is different: it stays the price the appointment was booked at.)
 // If a linked record cannot be found, a readable fallback ("Unknown pet", "Unknown owner") is used instead.
 export async function getAppointmentList() {
-  const [appointments, pets, customers] = await Promise.all([
+  const [appointments, pets, customers, services] = await Promise.all([
     appointmentRepository.getAppointments(),
     petRepository.getPets(),
     customerRepository.getCustomers(),
+    serviceRepository.getServices(),
   ]);
 
   return appointments
@@ -85,8 +94,12 @@ export async function getAppointmentList() {
       const customer = customers.find(
         (item) => item.id === appointment.customerId,
       );
+      const service = services.find(
+        (item) => item.id === appointment.serviceId,
+      );
       return {
         ...appointment,
+        service: service ? service.name : appointment.service,
         pet: pet ? pet.name : "Unknown pet",
         breed: pet ? pet.breed : "",
         species: pet ? pet.species : "Unknown",
@@ -161,12 +174,98 @@ export function filterAppointments(appointments, filters) {
 }
 
 // ---------------------------------------------------------------------------
+// Scheduling conflicts
+// ---------------------------------------------------------------------------
+
+// ASSUMPTION: the system has no staff or room scheduling, so the shop is treated as having ONE grooming
+// resource (one groomer). That means any two appointments that overlap in time conflict, whichever pets they
+// are for. The same pet can never be in two overlapping appointments either (this is a special case of the same rule).
+// If staff scheduling is added later, only findScheduleConflict below needs to change.
+
+// Used only if an appointment's service record cannot be found (services cannot be deleted while appointments use them).
+const DEFAULT_DURATION_MINUTES = 60;
+
+// "2026-11-25" + "13:30" -> a number of minutes. Using the date too means appointments on different days never
+// overlap, and a long appointment that runs past midnight is still compared correctly.
+function toMinutes(date, time) {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hours, minutes] = time.split(":").map(Number);
+  return Date.UTC(year, month - 1, day) / 60000 + hours * 60 + minutes;
+}
+
+// "13:00" + 120 minutes -> "3:00 PM"
+function formatEndTime(time, durationMinutes) {
+  const [hours, minutes] = time.split(":").map(Number);
+  const total = (hours * 60 + minutes + durationMinutes) % (24 * 60);
+  return formatTime(
+    `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`,
+  );
+}
+
+// Looks for an existing appointment that overlaps the one being saved.
+//   booking:  { petId, serviceDuration, date, time }
+//   ignoreId: the appointment being edited, so it never conflicts with itself (null when creating)
+// Rules: cancelled appointments are ignored. Two appointments overlap when each one starts before the other
+// ends (so one that starts exactly when another ends is fine).
+// Returns an error message, or "" when the time is free.
+async function findScheduleConflict(booking, ignoreId) {
+  const [appointments, services, pets] = await Promise.all([
+    appointmentRepository.getAppointments(),
+    serviceRepository.getServices(),
+    petRepository.getPets(),
+  ]);
+
+  const newStart = toMinutes(booking.date, booking.time);
+  const newEnd = newStart + booking.serviceDuration;
+
+  const conflicts = appointments
+    .filter(
+      (appointment) =>
+        appointment.status !== "Cancelled" && appointment.id !== ignoreId,
+    )
+    .map((appointment) => {
+      const service = services.find(
+        (item) => item.id === appointment.serviceId,
+      );
+      const duration = service
+        ? service.durationMinutes
+        : DEFAULT_DURATION_MINUTES;
+      const start = toMinutes(appointment.date, appointment.time);
+      return { appointment, duration, start, end: start + duration };
+    })
+    .filter((other) => newStart < other.end && other.start < newEnd);
+
+  if (conflicts.length === 0) return "";
+
+  // If the same pet is involved, say so first: that is the clearest message for the user.
+  const sorted = [...conflicts].sort(
+    (a, b) =>
+      Number(b.appointment.petId === booking.petId) -
+      Number(a.appointment.petId === booking.petId),
+  );
+  const { appointment, duration } = sorted[0];
+  const when = `${formatTime(appointment.time)} to ${formatEndTime(appointment.time, duration)}`;
+  const pet = pets.find((item) => item.id === appointment.petId);
+  const petName = pet ? pet.name : "Another pet";
+
+  if (appointment.petId === booking.petId) {
+    return `${petName} already has appointment ${appointment.id} from ${when} on ${formatShortDate(appointment.date)}. Choose a different time.`;
+  }
+  return `This time overlaps appointment ${appointment.id} (${petName}, ${when} on ${formatShortDate(appointment.date)}). The shop can groom one pet at a time, so choose a different time.`;
+}
+
+// ---------------------------------------------------------------------------
 // Create / edit / change status
 // ---------------------------------------------------------------------------
 
 // Turns the form values into a full appointment record, or returns { errors } if something is wrong.
+//
 // The owner is found through the pet (pet.customerId), so the appointment always gets the pet's real owner.
-// The form never sends an owner, so the owner and pet can never be mismatched.
+// The price is NOT taken from the form. It comes from the service record that serviceId points to:
+//   - a new appointment, or an edit that picks a different service: the service's current catalog price;
+//   - an edit that keeps the same service: the price the appointment already has (a snapshot), so a later change
+//     of the catalog price never changes an old appointment.
+// If the form still sends a price and it is not that price, the save is rejected.
 async function buildAppointmentRecord(form, existing) {
   const errors = validateAppointment(form, existing);
 
@@ -174,7 +273,10 @@ async function buildAppointmentRecord(form, existing) {
   const owner = pet
     ? await customerRepository.getCustomerById(pet.customerId)
     : null;
-  const service = form.serviceId
+
+  // A service id must be plain digits like "2". Anything else ("abc", "", "1.5", " 2", "0") is invalid.
+  const hasValidServiceId = /^[1-9]\d*$/.test(String(form.serviceId));
+  const service = hasValidServiceId
     ? await serviceRepository.getServiceById(Number(form.serviceId))
     : null;
 
@@ -195,8 +297,39 @@ async function buildAppointmentRecord(form, existing) {
     errors.serviceId = "This service is not currently offered.";
   }
 
+  // The real price, decided here and not by the form.
+  let price = null;
+  if (service) {
+    price =
+      existing && existing.serviceId === service.id
+        ? existing.price
+        : service.price;
+
+    const priceSent =
+      form.price !== undefined &&
+      form.price !== null &&
+      String(form.price).trim() !== "";
+    if (priceSent && Number(form.price) !== price) {
+      errors.price = `The price must match the selected service (${formatCurrency(price)}). Close the form and open it again.`;
+    }
+  }
+
   if (Object.keys(errors).length > 0) {
     return { errors };
+  }
+
+  // Rule: no overlapping appointments (see "Scheduling conflicts" above).
+  const conflict = await findScheduleConflict(
+    {
+      petId: pet.id,
+      serviceDuration: service.durationMinutes,
+      date: form.date,
+      time: form.time,
+    },
+    existing ? existing.id : null,
+  );
+  if (conflict) {
+    return { errors: { time: conflict } };
   }
 
   return {
@@ -204,8 +337,8 @@ async function buildAppointmentRecord(form, existing) {
       petId: pet.id,
       customerId: owner.id,
       serviceId: service.id,
-      service: service.name,
-      price: Number(form.price),
+      service: service.name, // a backup copy of the name (the lists use the current name from the service record)
+      price,
       date: form.date,
       time: form.time,
       notes: (form.notes || "").trim(),
@@ -274,9 +407,13 @@ export async function changeAppointmentStatus(id, newStatus) {
 
   // Rule: when a service is completed, a payment record (transaction) is created for it. It starts as
   // Pending; the Transactions page marks it as Paid once the customer pays.
+  // The transaction keeps a snapshot of what was agreed: the appointment's price, and the service name at this
+  // moment. Renaming the service later does not change this transaction.
   if (newStatus === "Completed") {
+    const service = await serviceRepository.getServiceById(existing.serviceId);
     await transactionRepository.createTransaction({
       appointmentId: id,
+      serviceName: service ? service.name : existing.service,
       amount: existing.price,
       paymentMethod: "",
       status: "Pending",

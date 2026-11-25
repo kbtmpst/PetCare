@@ -6,7 +6,7 @@
 //   appointment.petId      ->  pet.id
 //   appointment.customerId ->  customer.id   (the pet's owner when the appointment was booked)
 //   appointment.serviceId  ->  service.id
-//   transaction.appointmentId -> appointment.id
+//   transaction.appointmentId -> appointment.id   (the pet and owner are found through the appointment)
 
 // Dates are relative to today so the app always has appointments for "today".
 // The data layer keeps its own tiny date helper so it never has to import from the business layer.
@@ -306,7 +306,11 @@ export const services = [
 
 // Appointments store IDs, not names. The pet's name and the owner's name are looked up through
 // petId and customerId when the appointments are loaded (see appointmentService.js).
-// The service name and price ARE copied, so an old appointment keeps the price it was booked at.
+// The service price IS copied (a snapshot), so an old appointment keeps the price it was booked at even if the
+// service's catalog price changes later. The copied "service" name is only a backup: the appointment lists show
+// the service's current name, looked up through serviceId.
+//
+// No two active appointments overlap in time (the shop has one groomer, see appointmentService.js).
 export const appointments = [
   {
     id: "APT-001",
@@ -328,7 +332,7 @@ export const appointments = [
     service: "De-shedding",
     price: 500,
     date: daysFromToday(0),
-    time: "09:30",
+    time: "10:30",
     notes: "Heavy shedding, needs extra brushing",
     status: "Completed",
   },
@@ -352,7 +356,7 @@ export const appointments = [
     service: "Basic Bath",
     price: 350,
     date: daysFromToday(0),
-    time: "11:00",
+    time: "12:00",
     notes: "Gets nervous around dryers",
     status: "In Progress",
   },
@@ -376,7 +380,7 @@ export const appointments = [
     service: "Nail Trim",
     price: 150,
     date: daysFromToday(0),
-    time: "14:30",
+    time: "15:00",
     notes: "",
     status: "Pending",
   },
@@ -478,8 +482,10 @@ export const appointments = [
   },
 ];
 
-// Payments. A transaction only stores the appointment it belongs to, never names: the customer, pet and
-// service are looked up through appointment.customerId / petId / serviceId (see transactionService.js).
+// Payments. A transaction stores the appointment it belongs to: the customer and pet are looked up through
+// appointment.customerId / petId (see transactionService.js). The amount is a snapshot of the appointment's
+// price. Transactions created by the app also store "serviceName" (the service name at the time). The
+// sample ones below do not, so the service name saved on their appointment is shown instead.
 // Every Completed appointment has one transaction.
 //   status:        "Paid" | "Pending" | "Refunded"
 //   paymentMethod: "Cash" | "GCash" | "Card"   ("" while the payment is still Pending)
@@ -531,21 +537,4 @@ export const transactions = [
     date: daysFromToday(-5),
     paidDate: "",
   },
-];
-
-export const monthlyRevenue = [
-  { month: "Jun", revenue: 18450 },
-  { month: "Jul", revenue: 21200 },
-  { month: "Aug", revenue: 19800 },
-  { month: "Sep", revenue: 24600 },
-  { month: "Oct", revenue: 27350 },
-  { month: "Nov", revenue: 14200 },
-];
-
-export const popularServices = [
-  { name: "Full Groom", count: 48 },
-  { name: "Basic Bath", count: 41 },
-  { name: "De-shedding", count: 27 },
-  { name: "Nail Trim", count: 22 },
-  { name: "Flea & Tick Care", count: 14 },
 ];

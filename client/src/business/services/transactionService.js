@@ -2,10 +2,14 @@
 // The Transactions page and the Dashboard call these functions. They use the repositories (data layer)
 // to read and save, and the validator to check the form. Nothing here draws anything on screen.
 //
-// A transaction only stores an appointmentId. The customer, pet and service are looked up through it:
+// A transaction stores an appointmentId. The customer and pet are looked up through it:
 //   transaction.appointmentId -> appointment.petId      -> pet
 //                             -> appointment.customerId -> customer
-//                             -> appointment.service    (the service name the appointment was booked with)
+//
+// A transaction is a record of what happened at the time, so it keeps its own snapshot:
+//   transaction.amount       the appointment's agreed price when the service was completed
+//   transaction.serviceName  the service name at that moment (renaming the service later does not change it)
+// Older transactions without a serviceName show the name saved on their appointment instead.
 import * as transactionRepository from "../../data/repositories/transactionRepository.js";
 import * as appointmentRepository from "../../data/repositories/appointmentRepository.js";
 import * as petRepository from "../../data/repositories/petRepository.js";
@@ -32,7 +36,8 @@ export function canRefund(status) {
 // ---------------------------------------------------------------------------
 
 // All transactions, newest first, each one extended with:
-//   customer, pet, species, service   looked up through the appointment (with a safe fallback if missing)
+//   customer, pet, species   looked up through the appointment (with a safe fallback if missing)
+//   service                   the snapshot name saved on the transaction (see the top of this file)
 export async function getTransactionList() {
   const [transactions, appointments, pets, customers] = await Promise.all([
     transactionRepository.getTransactions(),
@@ -59,7 +64,9 @@ export async function getTransactionList() {
           : "Unknown owner",
         pet: pet ? pet.name : "Unknown pet",
         species: pet ? pet.species : "Unknown",
-        service: appointment ? appointment.service : "Unknown service",
+        service:
+          transaction.serviceName ||
+          (appointment ? appointment.service : "Unknown service"),
       };
     })
     .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));

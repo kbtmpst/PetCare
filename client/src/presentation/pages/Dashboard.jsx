@@ -46,8 +46,16 @@ export default function Dashboard() {
   if (error) return <p className="text-sm text-red-700">{error}</p>;
   if (!data) return <p className="text-sm text-muted">Loading dashboard...</p>;
 
-  const { stats, schedule, upcoming, recent, monthlyRevenue, popularServices } =
-    data;
+  const {
+    stats,
+    schedule,
+    upcoming,
+    recent,
+    monthlyRevenue,
+    popularServices,
+    hasRevenue,
+    hasPopularServices,
+  } = data;
 
   return (
     <>
@@ -119,43 +127,49 @@ export default function Dashboard() {
           </Card>
         </div>
 
-        <Card title="Popular Services">
-          <div className="h-56 sm:h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={popularServices}
-                layout="vertical"
-                margin={{ left: 0, right: 16 }}
-              >
-                <CartesianGrid stroke={GRID_COLOR} horizontal={false} />
-                <XAxis
-                  type="number"
-                  tick={TICK_STYLE}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  width={104}
-                  tick={TICK_STYLE}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  cursor={{ fill: "#f3f6f3" }}
-                  contentStyle={TOOLTIP_STYLE}
-                  formatter={(value) => [value, "Bookings"]}
-                />
-                <Bar
-                  dataKey="count"
-                  fill={CHART_COLOR}
-                  radius={[0, 4, 4, 0]}
-                  barSize={18}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        <Card title="Popular Services (last 6 months)">
+          {!hasPopularServices ? (
+            <p className="py-10 text-center text-sm text-muted">
+              No bookings in the last 6 months.
+            </p>
+          ) : (
+            <div className="h-56 sm:h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={popularServices}
+                  layout="vertical"
+                  margin={{ left: 0, right: 16 }}
+                >
+                  <CartesianGrid stroke={GRID_COLOR} horizontal={false} />
+                  <XAxis
+                    type="number"
+                    tick={TICK_STYLE}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    width={104}
+                    tick={TICK_STYLE}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "#f3f6f3" }}
+                    contentStyle={TOOLTIP_STYLE}
+                    formatter={(value) => [value, "Bookings"]}
+                  />
+                  <Bar
+                    dataKey="count"
+                    fill={CHART_COLOR}
+                    radius={[0, 4, 4, 0]}
+                    barSize={18}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </Card>
       </div>
 
@@ -180,36 +194,42 @@ export default function Dashboard() {
 
       <div className="mt-4 sm:mt-6">
         <Card title="Monthly Revenue (last 6 months)">
-          <div className="h-56 sm:h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={monthlyRevenue} margin={{ left: 0, right: 8 }}>
-                <CartesianGrid stroke={GRID_COLOR} vertical={false} />
-                <XAxis
-                  dataKey="month"
-                  tick={TICK_STYLE}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={TICK_STYLE}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(value) => `₱${value / 1000}k`}
-                />
-                <Tooltip
-                  cursor={{ fill: "#f3f6f3" }}
-                  contentStyle={TOOLTIP_STYLE}
-                  formatter={(value) => [formatCurrency(value), "Revenue"]}
-                />
-                <Bar
-                  dataKey="revenue"
-                  fill={CHART_COLOR}
-                  radius={[4, 4, 0, 0]}
-                  maxBarSize={48}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {!hasRevenue ? (
+            <p className="py-10 text-center text-sm text-muted">
+              No paid transactions in the last 6 months.
+            </p>
+          ) : (
+            <div className="h-56 sm:h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyRevenue} margin={{ left: 0, right: 8 }}>
+                  <CartesianGrid stroke={GRID_COLOR} vertical={false} />
+                  <XAxis
+                    dataKey="month"
+                    tick={TICK_STYLE}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={TICK_STYLE}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(value) => formatCurrency(value)}
+                  />
+                  <Tooltip
+                    cursor={{ fill: "#f3f6f3" }}
+                    contentStyle={TOOLTIP_STYLE}
+                    formatter={(value) => [formatCurrency(value), "Revenue"]}
+                  />
+                  <Bar
+                    dataKey="revenue"
+                    fill={CHART_COLOR}
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={48}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </Card>
       </div>
     </>

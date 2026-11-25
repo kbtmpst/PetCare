@@ -61,16 +61,20 @@ export default function AppointmentFormModal({
     setErrors((current) => ({ ...current, [field]: undefined }));
   }
 
-  // When a service is picked, fill in its price automatically (staff can still change the price).
+  // When a service is picked, fill in its price automatically. The price field is read-only, so staff cannot
+  // type a different price. Going back to the appointment's original service shows the price it was booked at.
+  // (The business layer decides the real price again when saving; it never trusts this field.)
   function handleServiceChange(serviceId) {
     const service = options.services.find(
       (item) => String(item.id) === serviceId,
     );
-    setForm((current) => ({
-      ...current,
-      serviceId,
-      price: service ? String(service.price) : "",
-    }));
+    const keepsOriginalService =
+      isEditing && serviceId === String(appointment.serviceId);
+    let price = "";
+    if (keepsOriginalService) price = String(appointment.price);
+    else if (service) price = String(service.price);
+
+    setForm((current) => ({ ...current, serviceId, price }));
     setErrors((current) => ({
       ...current,
       serviceId: undefined,
@@ -190,7 +194,7 @@ export default function AppointmentFormModal({
               <option value="">Select a service</option>
               {serviceChoices.map((service) => (
                 <option key={service.id} value={service.id}>
-                  {service.name}
+                  {service.active ? service.name : `${service.name} (inactive)`}
                 </option>
               ))}
             </select>
@@ -199,18 +203,15 @@ export default function AppointmentFormModal({
           <FormField
             label="Price (₱)"
             htmlFor="price"
-            required
             error={errors.price}
-            hint="Filled in from the service. You can adjust it."
+            hint="Set by the selected service. It cannot be edited here."
           >
             <input
               id="price"
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="any"
+              type="text"
               value={form.price}
-              onChange={(event) => handleChange("price", event.target.value)}
+              placeholder="Select a service first"
+              readOnly
               className={inputClass(Boolean(errors.price))}
             />
           </FormField>
