@@ -6,6 +6,7 @@
 //   appointment.petId      ->  pet.id
 //   appointment.customerId ->  customer.id   (the pet's owner when the appointment was booked)
 //   appointment.serviceId  ->  service.id
+//   transaction.appointmentId -> appointment.id
 
 // Dates are relative to today so the app always has appointments for "today".
 // The data layer keeps its own tiny date helper so it never has to import from the business layer.
@@ -474,6 +475,61 @@ export const appointments = [
     time: "10:00",
     notes: "",
     status: "Completed",
+  },
+];
+
+// Payments. A transaction only stores the appointment it belongs to, never names: the customer, pet and
+// service are looked up through appointment.customerId / petId / serviceId (see transactionService.js).
+// Every Completed appointment has one transaction.
+//   status:        "Paid" | "Pending" | "Refunded"
+//   paymentMethod: "Cash" | "GCash" | "Card"   ("" while the payment is still Pending)
+//   date:          the day the transaction was created (the day the service was completed)
+//   paidDate:      the day it was paid ("" while Pending)
+export const transactions = [
+  {
+    id: "TRX-001",
+    appointmentId: "APT-001",
+    amount: 650,
+    paymentMethod: "Cash",
+    status: "Paid",
+    date: daysFromToday(0),
+    paidDate: daysFromToday(0),
+  },
+  {
+    id: "TRX-002",
+    appointmentId: "APT-002",
+    amount: 500,
+    paymentMethod: "GCash",
+    status: "Paid",
+    date: daysFromToday(0),
+    paidDate: daysFromToday(0),
+  },
+  {
+    id: "TRX-003",
+    appointmentId: "APT-011",
+    amount: 650,
+    paymentMethod: "Cash",
+    status: "Paid",
+    date: daysFromToday(-1),
+    paidDate: daysFromToday(-1),
+  },
+  {
+    id: "TRX-004",
+    appointmentId: "APT-012",
+    amount: 350,
+    paymentMethod: "Card",
+    status: "Refunded",
+    date: daysFromToday(-2),
+    paidDate: daysFromToday(-2),
+  },
+  {
+    id: "TRX-005",
+    appointmentId: "APT-014",
+    amount: 350,
+    paymentMethod: "",
+    status: "Pending",
+    date: daysFromToday(-5),
+    paidDate: "",
   },
 ];
 

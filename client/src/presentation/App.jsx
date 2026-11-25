@@ -5,6 +5,7 @@ import Appointments from "./pages/Appointments.jsx";
 import Pets from "./pages/Pets.jsx";
 import Customers from "./pages/Customers.jsx";
 import Services from "./pages/Services.jsx";
+import Transactions from "./pages/Transactions.jsx";
 import ComingSoon from "./pages/ComingSoon.jsx";
 
 export default function App() {
@@ -19,10 +20,7 @@ export default function App() {
         <Route path="pets" element={<Pets />} />
         <Route path="customers" element={<Customers />} />
         <Route path="services" element={<Services />} />
-        <Route
-          path="transactions"
-          element={<ComingSoon title="Transactions" />}
-        />
+        <Route path="transactions" element={<Transactions />} />
         <Route path="analytics" element={<ComingSoon title="Analytics" />} />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

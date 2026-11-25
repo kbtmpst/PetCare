@@ -5,6 +5,7 @@ import * as appointmentRepository from "../../data/repositories/appointmentRepos
 import * as petRepository from "../../data/repositories/petRepository.js";
 import * as customerRepository from "../../data/repositories/customerRepository.js";
 import * as serviceRepository from "../../data/repositories/serviceRepository.js";
+import * as transactionRepository from "../../data/repositories/transactionRepository.js";
 import { validateAppointment } from "../validators/appointmentValidator.js";
 import { toISODate } from "../utils/format.js";
 
@@ -69,7 +70,8 @@ function fullName(customer) {
 // All appointments, newest date first (and earliest time first within the same day).
 // An appointment only stores petId and customerId. Here we look up the pet's name and breed and the
 // owner's name through those ids, so the pages (and the Dashboard) can simply show appointment.pet,
-// appointment.breed and appointment.customer, and always see the current names.
+// appointment.breed, appointment.species and appointment.customer, and always see the current names.
+// If a linked record cannot be found, a readable fallback ("Unknown pet", "Unknown owner") is used instead.
 export async function getAppointmentList() {
   const [appointments, pets, customers] = await Promise.all([
     appointmentRepository.getAppointments(),
@@ -87,6 +89,7 @@ export async function getAppointmentList() {
         ...appointment,
         pet: pet ? pet.name : "Unknown pet",
         breed: pet ? pet.breed : "",
+        species: pet ? pet.species : "Unknown",
         customer: customer ? fullName(customer) : "Unknown owner",
       };
     })
@@ -268,6 +271,20 @@ export async function changeAppointmentStatus(id, newStatus) {
   const appointment = await appointmentRepository.updateAppointment(id, {
     status: newStatus,
   });
+
+  // Rule: when a service is completed, a payment record (transaction) is created for it. It starts as
+  // Pending; the Transactions page marks it as Paid once the customer pays.
+  if (newStatus === "Completed") {
+    await transactionRepository.createTransaction({
+      appointmentId: id,
+      amount: existing.price,
+      paymentMethod: "",
+      status: "Pending",
+      date: toISODate(),
+      paidDate: "",
+    });
+  }
+
   return { ok: true, appointment };
 }
 

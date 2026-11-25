@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarDays, ClipboardCheck, Clock, Wallet } from "lucide-react";
+import {
+  CalendarDays,
+  ClipboardCheck,
+  Clock,
+  PawPrint,
+  Users,
+  Wallet,
+} from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -13,13 +20,9 @@ import {
 import PageHeader from "../components/ui/PageHeader.jsx";
 import Card from "../components/ui/Card.jsx";
 import StatCard from "../components/ui/StatCard.jsx";
-import StatusBadge from "../components/ui/StatusBadge.jsx";
+import AppointmentList from "../components/dashboard/AppointmentList.jsx";
 import { getDashboardData } from "../../business/services/dashboardService.js";
-import {
-  formatCurrency,
-  formatLongDate,
-  formatTime,
-} from "../../business/utils/format.js";
+import { formatCurrency, formatLongDate } from "../../business/utils/format.js";
 
 const CHART_COLOR = "#4d6a50";
 const GRID_COLOR = "#e4e8e4";
@@ -43,14 +46,15 @@ export default function Dashboard() {
   if (error) return <p className="text-sm text-red-700">{error}</p>;
   if (!data) return <p className="text-sm text-muted">Loading dashboard...</p>;
 
-  const { stats, schedule, monthlyRevenue, popularServices } = data;
+  const { stats, schedule, upcoming, recent, monthlyRevenue, popularServices } =
+    data;
 
   return (
     <>
       <PageHeader title="Dashboard" subtitle={formatLongDate()} />
 
-      {/* Stat cards: 2 columns on mobile and tablet/laptop, 4 columns on desktop (1280px+) */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+      {/* Stat cards: 2 columns on mobile, tablet and laptop, 3 columns on desktop (1280px+) */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3">
         <StatCard
           icon={CalendarDays}
           label="Today's Appointments"
@@ -74,14 +78,26 @@ export default function Dashboard() {
           hint={`of ${stats.todayAppointments} scheduled`}
         />
         <StatCard
+          icon={Users}
+          label="Total Customers"
+          value={stats.totalCustomers}
+          hint="Registered pet owners"
+        />
+        <StatCard
+          icon={PawPrint}
+          label="Total Pets"
+          value={stats.totalPets}
+          hint="Registered pets"
+        />
+        <StatCard
           icon={Wallet}
           label="Today's Revenue"
           value={formatCurrency(stats.todayRevenue)}
-          hint="From completed services"
+          hint={`${formatCurrency(stats.totalRevenue)} total paid`}
         />
       </div>
 
-      {/* Schedule and popular services sit side by side from 1280px; they stack below that */}
+      {/* Today's schedule and popular services sit side by side from 1280px; they stack below that */}
       <div className="mt-4 grid gap-4 sm:mt-6 sm:gap-6 xl:grid-cols-3">
         <div className="min-w-0 xl:col-span-2">
           <Card
@@ -96,41 +112,10 @@ export default function Dashboard() {
               </Link>
             }
           >
-            {schedule.length === 0 ? (
-              <p className="p-4 text-sm text-muted sm:p-5">
-                No appointments scheduled for today.
-              </p>
-            ) : (
-              <ul className="divide-y divide-line">
-                {schedule.map((appointment) => (
-                  // Mobile: time and status on the first line, pet details below.
-                  // Tablet and up: everything on one row.
-                  <li
-                    key={appointment.id}
-                    className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 sm:flex-nowrap sm:px-5"
-                  >
-                    <span className="order-1 w-20 shrink-0 text-sm font-medium">
-                      {formatTime(appointment.time)}
-                    </span>
-                    <div className="order-3 min-w-0 basis-full sm:order-2 sm:flex-1 sm:basis-0">
-                      <p className="truncate text-sm font-medium">
-                        {appointment.pet}
-                        <span className="font-normal text-muted">
-                          {" "}
-                          · {appointment.breed}
-                        </span>
-                      </p>
-                      <p className="truncate text-xs text-muted">
-                        {appointment.customer} · {appointment.service}
-                      </p>
-                    </div>
-                    <div className="order-2 ml-auto sm:order-3 sm:ml-0">
-                      <StatusBadge status={appointment.status} />
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <AppointmentList
+              appointments={schedule}
+              emptyMessage="No appointments scheduled for today."
+            />
           </Card>
         </div>
 
@@ -171,6 +156,25 @@ export default function Dashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </Card>
+      </div>
+
+      {/* Upcoming (later days) and recent (earlier days) appointments */}
+      <div className="mt-4 grid gap-4 sm:mt-6 sm:gap-6 xl:grid-cols-2">
+        <Card title="Upcoming Appointments" bodyClassName="p-0">
+          <AppointmentList
+            appointments={upcoming}
+            showDate
+            emptyMessage="No upcoming appointments."
+          />
+        </Card>
+
+        <Card title="Recent Appointments" bodyClassName="p-0">
+          <AppointmentList
+            appointments={recent}
+            showDate
+            emptyMessage="No recent appointments yet."
+          />
         </Card>
       </div>
 
