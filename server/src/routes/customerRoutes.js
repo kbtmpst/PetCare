@@ -1,18 +1,16 @@
-// ROUTES: connects each URL + HTTP method of the Customers API to a controller function.
-// There is no DELETE yet: pets and appointments refer to customers.
+// ROUTES (wiring): plugs the real Express router, login check, role checks and Customers controller into
+// the rules in createCustomerRoutes.js. routes/index.js imports this file.
 import { Router } from "express";
-import {
-  listCustomers,
-  getCustomer,
-  createCustomer,
-  updateCustomer,
-} from "../controllers/customerController.js";
+import * as controller from "../controllers/customerController.js";
+import { authenticate } from "../middleware/authenticate.js";
+import { requireRole } from "../middleware/requireRole.js";
+import { requireOwnCustomerOrRole } from "../middleware/requireOwnCustomerOrRole.js";
+import { createCustomerRoutes } from "./createCustomerRoutes.js";
 
-const router = Router();
-
-router.get("/", listCustomers); // GET   /api/customers
-router.get("/:id", getCustomer); // GET   /api/customers/:id
-router.post("/", createCustomer); // POST  /api/customers
-router.put("/:id", updateCustomer); // PUT   /api/customers/:id
-
-export default router;
+export default createCustomerRoutes({
+  router: Router(),
+  authenticate,
+  requireRole,
+  requireOwnCustomerOrRole,
+  controller,
+});
