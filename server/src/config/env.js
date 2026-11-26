@@ -26,6 +26,30 @@ if (!/^[+-]\d{2}:\d{2}$/.test(timezone)) {
   throw new Error('DB_TIMEZONE must look like "+08:00".');
 }
 
+// --- Authentication settings -------------------------------------------------
+// The secret signs the login tokens. Anyone who knows it can forge a login, so it must be long, random,
+// private (only in server/.env) and never written in the code.
+const jwtSecret = required("JWT_SECRET");
+if (jwtSecret.length < 32 || jwtSecret.startsWith("replace_with")) {
+  throw new Error(
+    "JWT_SECRET in server/.env is too short or still the example text. Use a random value of at least 32 characters.",
+  );
+}
+
+// How long a login lasts, for example 8h, 30m or 1d.
+const jwtExpiresIn = (process.env.JWT_EXPIRES_IN || "8h").trim();
+if (!/^[1-9]\d*[mhd]$/.test(jwtExpiresIn)) {
+  throw new Error(
+    'JWT_EXPIRES_IN must look like "8h" (a number followed by m, h or d).',
+  );
+}
+
+// How much work bcrypt does per password. Higher is safer but slower. 10 is a good default.
+const bcryptRounds = Number(process.env.BCRYPT_ROUNDS || 10);
+if (!Number.isInteger(bcryptRounds) || bcryptRounds < 4 || bcryptRounds > 15) {
+  throw new Error("BCRYPT_ROUNDS must be a whole number from 4 to 15.");
+}
+
 export const config = {
   port: Number(process.env.PORT) || 5000,
 
@@ -42,5 +66,11 @@ export const config = {
     password: process.env.DB_PASSWORD ?? "",
     database: required("DB_NAME"),
     timezone,
+  },
+
+  auth: {
+    jwtSecret,
+    jwtExpiresIn,
+    bcryptRounds,
   },
 };
