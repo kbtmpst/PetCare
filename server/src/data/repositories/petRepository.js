@@ -59,6 +59,15 @@ export async function getPetById(id) {
   return rows.length > 0 ? toPet(rows[0]) : null;
 }
 
+// Only the owner (customer id) of one pet, or null when there is no pet with this id.
+// Used by the authorization check, so it reads one column instead of the whole pet.
+export async function getPetOwnerId(id) {
+  const [rows] = await pool.query("SELECT customer_id FROM pets WHERE id = ?", [
+    id,
+  ]);
+  return rows.length > 0 ? rows[0].customer_id : null;
+}
+
 // Adds a pet and returns it (with the new id the database created).
 // An empty birth date or notes is saved as NULL.
 export async function createPet(pet) {

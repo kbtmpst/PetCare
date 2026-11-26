@@ -1,18 +1,20 @@
-// ROUTES: connects each URL + HTTP method of the Pets API to a controller function.
-// There is no DELETE: pets are kept so their appointment history is preserved.
+// ROUTES (wiring): plugs the real Express router, login check, ownership checks and Pets controller into
+// the rules in createPetRoutes.js. routes/index.js imports this file.
 import { Router } from "express";
+import * as controller from "../controllers/petController.js";
+import { authenticate } from "../middleware/authenticate.js";
+import { requireOwnPetOrRole } from "../middleware/requireOwnPetOrRole.js";
 import {
-  listPets,
-  getPet,
-  createPet,
-  updatePet,
-} from "../controllers/petController.js";
+  scopePetListToOwner,
+  requireOwnerInBody,
+} from "../middleware/scopePetsToOwner.js";
+import { createPetRoutes } from "./createPetRoutes.js";
 
-const router = Router();
-
-router.get("/", listPets); // GET   /api/pets
-router.get("/:id", getPet); // GET   /api/pets/:id
-router.post("/", createPet); // POST  /api/pets
-router.put("/:id", updatePet); // PUT   /api/pets/:id
-
-export default router;
+export default createPetRoutes({
+  router: Router(),
+  authenticate,
+  requireOwnPetOrRole,
+  scopePetListToOwner,
+  requireOwnerInBody,
+  controller,
+});

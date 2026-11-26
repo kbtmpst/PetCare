@@ -1,7 +1,7 @@
 // MIDDLEWARE: only lets certain roles through. Use it AFTER authenticate:
 //   router.post("/", authenticate, requireRole("admin"), createService);
 //   router.get("/", authenticate, requireRole("admin", "staff"), listCustomers);
-// (The Services and Customers routes use it. The Pets routes do not use it yet.)
+// (The Services, Customers and Pets routes use it.)
 const ROLES = ["admin", "staff", "customer"];
 
 export function requireRole(...allowedRoles) {
