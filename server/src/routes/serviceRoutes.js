@@ -1,20 +1,14 @@
-// ROUTES: connects each URL + HTTP method of the Services API to a controller function.
-// There is no DELETE: services are deactivated, never deleted (appointments refer to them).
+// ROUTES (wiring): plugs the real Express router, login check, role check and Services controller into
+// the rules in createServiceRoutes.js. routes/index.js imports this file.
 import { Router } from "express";
-import {
-  listServices,
-  getService,
-  createService,
-  updateService,
-  updateServiceStatus,
-} from "../controllers/serviceController.js";
+import * as controller from "../controllers/serviceController.js";
+import { authenticate } from "../middleware/authenticate.js";
+import { requireRole } from "../middleware/requireRole.js";
+import { createServiceRoutes } from "./createServiceRoutes.js";
 
-const router = Router();
-
-router.get("/", listServices); // GET   /api/services
-router.get("/:id", getService); // GET   /api/services/:id
-router.post("/", createService); // POST  /api/services
-router.put("/:id", updateService); // PUT   /api/services/:id
-router.patch("/:id/status", updateServiceStatus); // PATCH /api/services/:id/status
-
-export default router;
+export default createServiceRoutes({
+  router: Router(),
+  authenticate,
+  requireRole,
+  controller,
+});
