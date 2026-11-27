@@ -5,6 +5,7 @@ import healthRoutes from "./healthRoutes.js";
 import serviceRoutes from "./serviceRoutes.js";
 import customerRoutes from "./customerRoutes.js";
 import petRoutes from "./petRoutes.js";
+import appointmentRoutes from "./appointmentRoutes.js";
 import authRoutes from "./authRoutes.js";
 
 const router = Router();
@@ -13,6 +14,7 @@ router.use("/health", healthRoutes);
 router.use("/services", serviceRoutes);
 router.use("/customers", customerRoutes);
 router.use("/pets", petRoutes);
+router.use("/appointments", appointmentRoutes);
 router.use("/auth", authRoutes);
 
 export default router;
